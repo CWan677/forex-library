@@ -1,4 +1,4 @@
-from hw1_forexAPI_library.forex_api import compute
+from hw1_forexAPI_library import compute
 
 
 def test():
