@@ -6,6 +6,7 @@ from sqlalchemy import text
 from math import sqrt
 from math import isnan
 
+# got a free API key from Polygon instead of the one given by the professor
 api_key = "2QOMZBsPlkWkbUWvbxlUcoH4beMJWfDT"
 
 # Define the AUDUSD_return class - each instance will store one row from the dataframe
@@ -20,7 +21,6 @@ class AUDUSD_return(object):
 
     # Init all the necessary variables when instantiating the class
     def __init__(self, tick_time, avg_price):
-
         # Store each column value into a variable in the class instance
         self.tick_time = tick_time
         # self.price = avg_price
@@ -711,6 +711,7 @@ def aggregate_raw_data_tables(engine, currency_pairs):
                 pass
 
 def compute(currency_pairs):
+    # set API key to call Polygon
     key = api_key
 
     # Number of list iterations - each one should last about 1 second
@@ -726,7 +727,6 @@ def compute(currency_pairs):
 
     # Open a RESTClient for making the api calls
     client = RESTClient(key)
-    # with RESTClient(key) as client:
     # Loop that runs until the total duration of the program hits 24 hours.
     while count < 86400:  # 86400 seconds = 24 hours
 
@@ -753,27 +753,25 @@ def compute(currency_pairs):
 
             # Call the API with the required parameters
             try:
-                ticker = "C:" + from_ + to
-                # this gets the last day's open, high, low and close data for the currencies specified
-                resp = client.get_previous_close_agg(ticker)
+                resp = client.forex_currencies_real_time_currency_conversion(from_, to, amount=100, precision=2)
             except:
                 continue
 
             # This gets the Last Trade object defined in the API Resource
-            last_trade = resp[0]
+            last_trade = resp.last
 
             # Format the timestamp from the result
-            dt = ts_to_datetime(last_trade.timestamp)
+            dt = ts_to_datetime(last_trade["timestamp"])
 
             # Get the current time and format it
             insert_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-            # Calculate the price by taking the average of the bid and ask prices --- this will not work
-            # since the free API Key does not allow us to get the real time conversion or even the last quote, I used the last day's data which does not have bid and ask fields. Instead I used the average of high and low
-            avg_price = (last_trade.high + last_trade.low) / 2
+            # Calculate the price by taking the average of the bid and ask prices
+            avg_price = (last_trade['bid'] + last_trade['ask']) / 2
 
             # Write the data to the SQLite database, raw data tables
             with engine.begin() as conn:
                 conn.execute(text(
                     "INSERT INTO " + from_ + to + "_raw(ticktime, fxrate, inserttime) VALUES (:ticktime, :fxrate, :inserttime)"),
                              [{"ticktime": dt, "fxrate": avg_price, "inserttime": insert_time}])
+
